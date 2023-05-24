@@ -1,0 +1,10 @@
+Anleitung Abschlussreport Wahlfach M5: Data is beautiful (14.1.2022)
+
+ - Erstellen Sie ein neues R-Notebook
+ - Laden Sie die Messdaten aus diesem Verzeichnis und Explorieren Sie die Messungen
+ - Dokumentieren Sie Abweichungen von der Normalverteilung und Korrelationen mit geeigneten Plots
+ - Laden Sie die Studienliste und dokumentieren Sie das Gerät mit großer Abweichung in der Messung
+ - Schließen Sie das Gerät mit starker Abweichung von der weiteren Analyse aus
+ - Laden Sie die Behandlungsliste und stellen Sie die Verteilung der Behandlungen über das Patientenkollektiv dar
+ - Fügen Sie alle Daten zusammen, so dass Sie einen "tidy" Dataframe mit allen Informationen haben
+ - Finden Sie die Behandlung mit einem deutlichen Effekt auf eine der Messungen und dokumentieren Sie diese

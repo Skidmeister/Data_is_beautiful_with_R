@@ -1,0 +1,293 @@
+---
+title: 'Abschlussbericht zum genialen R-Kurs "Data is Beautiful"'
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+2022-01-13
+by Mikolaj Cygan
+
+Import `tidyverse´
+```{r}
+library(tidyverse)
+```
+
+# Exploration of measurements done in the study.
+
+## Creating initial dataframe from `measurements.csv`.
+
+```{r}
+df <- read_delim('measurements.csv',';')
+df
+```
+## Table cleaning
+Representing each measurement as one observation in one row.
+```{r}
+df<- df %>% 
+  pivot_wider(names_from=measurement, values_from=value)
+df
+```
+## Hitrograms of different variables
+
+ <span style="color: red;">Ich habe hier versucht eine for loop zu bauen, die alle histogramme hintereinander zeigen würde. Das hat nicht funktioniert, ich bin später auf eine alternative gekommen, bin jedoch gespannt, wie man in solchem fall eine for-loop benutzen könnte.</span>
+```{r}
+column_names <- colnames(df)
+column_names <- list(column_names)
+for (colname in column_names[-1:-2]) {
+  print(colname)
+  histogram <-
+    ggplot(data=df)+
+    geom_histogram(mapping=aes(x=colname))
+  print(histogram)
+}
+
+```
+
+### Plotting few histograms 
+Broad overview of how the histograms are shaped for each variable
+
+```{r}
+df %>% 
+  ggplot()+
+  geom_histogram(mapping=aes(x=Productivity, fill="Productivity", alpha=0.2))+
+  geom_histogram(mapping=aes(x=Quality.of.life, fill="Quality of life", alpha=0.2))+
+  geom_histogram(mapping=aes(x=Laziness, fill="Laziness", alpha=0.2))+
+  geom_histogram(mapping=aes(x=Intelligence, fill="Intelligence", alpha=0.2))+
+  geom_histogram(mapping=aes(x=Resilience, fill="Resilience", alpha=0.2))
+  
+```
+Plotting just resilience
+```{r}
+ggplot(data=df)+
+  geom_histogram(mapping=aes(x=Resilience, fill="Resilience", alpha=0.2))
+```
+Resilience has two peaks, almost as if there were two distinc groups among this one varaible
+
+Plotting other variables on seperate histogram
+```{r}
+df %>% 
+  ggplot()+
+  geom_histogram(mapping=aes(x=Productivity, fill="Productivity", alpha=0.2))+
+  geom_histogram(mapping=aes(x=Quality.of.life, fill="Quality of life", alpha=0.2))+
+  geom_histogram(mapping=aes(x=Laziness, fill="Laziness", alpha=0.2))+
+  geom_histogram(mapping=aes(x=Intelligence, fill="Intelligence", alpha=0.2))
+```
+Intelligence, Laziness, Producivity and Quality of life follow normal distribution pattern. There is different scale used in case of productivity.
+
+# Exploring correlations using point diagrams
+```{r}
+df %>% 
+  ggplot()+
+  geom_point(mapping=aes(x=Productivity, y=Quality.of.life, color=Laziness))
+```
+There is observable trend between Productivity and Laziness. The more lazy the Patient the less productive he is... :) 
+No Korrelation between Quality of Life and Producitvity or Laziness
+```{r}
+df %>% 
+  ggplot()+
+  geom_point(mapping=aes(x=Productivity, y=Intelligence, color=Resilience))
+```
+There is correlation between Productivity and Intelligence. But there is no visible correlation between these two variables and Resillience.
+
+# Korrelation matrix
+## Prepare the data
+```{r}
+df_for_cor <- df[, c(3:7)]
+df_for_cor
+```
+## Creating correlation matrix with `cor()`:
+```{r}
+cormat <- round(cor(df_for_cor),2)
+head(cormat)
+```
+
+```{r}
+library(reshape2)
+melted_cormat <- melt(cormat)
+melted_cormat
+```
+## Plotting the correlation-heatmap
+```{r}
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()
+```
+## Fine-Tuning of the correlation heat-map
+### Getting rid of redundant information:
+
+Creating 2 helper functions:
+```{r}
+# Get lower triangle of the correlation matrix
+  get_lower_tri<-function(cormat){
+    cormat[upper.tri(cormat)] <- NA
+    return(cormat)
+  }
+  # Get upper triangle of the correlation matrix
+  get_upper_tri <- function(cormat){
+    cormat[lower.tri(cormat)]<- NA
+    return(cormat)
+  }
+
+```
+
+```{r}
+upper_tri <- get_upper_tri(cormat)
+upper_tri
+```
+
+```{r}
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+```
+
+```{r}
+heatmap<-ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed()
+heatmap
+```
+Adding in correlation coefficients:
+```{r}
+heatmap + 
+geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
+theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.justification = c(1, 0),
+  legend.position = c(0.6, 0.7),
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                title.position = "top", title.hjust = 0.5))
+```
+
+This way we can neatly see that there is positive correlation between intelligence and productivity, and that there is negative correlation of similar significance between Laziness and Productivity, whereas there is no correlation between other combinations of variables.
+
+## Exploring the correalations
+
+```{r}
+library("ggpubr")
+ggscatter(df, x = "Laziness" , y = "Productivity", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Laziness", ylab = "Productivity")
+```
+```{r}
+library("ggpubr")
+ggscatter(df, x = "Intelligence" , y = "Productivity", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Intelligence", ylab = "Productivity")
+```
+### Significance
+The p-value of the pearson correlation tests are less than the significance level alpha = 0.05. We can conclude that both (Intelligence and Productivity) and (Laziness and Productivity) are significantly correlated with a correlation coefficient of -0.72 and, 0.71 respectively.
+
+# Adding study-list
+```{r}
+studienliste <- read_delim('studienliste.csv',';')
+studienliste
+```
+## Cleaning the table
+Pivotting of the table to
+```{r}
+studienliste_2 <- studienliste %>% 
+  pivot_longer(Visit_1:Visit_3, values_to="OrtundGer", names_to="visit") %>% 
+  separate(OrtundGer, into=c("Ort", "Geraet"), sep='_') %>% 
+  separate(visit, into=c("trash", "visit"),convert=TRUE, sep='_') %>% 
+  select(-trash)
+studienliste_2
+```
+Joining of the two tables:
+```{r}
+df_full <- left_join(df, studienliste_2, by=c("PatID","visit"))
+df_full
+```
+### Boxplots to see the measurements for each variable done on each MRT Machine
+```{r}
+par(mfrow=c(3,3))
+plot_1 <- ggplot(data=df_full) +
+    geom_boxplot(aes(x=Geraet, y=Productivity, fill=Ort))
+plot_2 <- ggplot(data=df_full) +
+    geom_boxplot(aes(x=Geraet, y=Quality.of.life, fill=Ort))
+plot_3 <- ggplot(data=df_full) +
+    geom_boxplot(aes(x=Geraet, y=Laziness, fill=Ort))
+plot_4 <- ggplot(data=df_full) +
+    geom_boxplot(aes(x=Geraet, y=Intelligence, fill=Ort))
+plot_5 <- ggplot(data=df_full) +
+    geom_boxplot(aes(x=Geraet, y=Resilience, fill=Ort))
+
+ggarrange(plot_1, plot_2, plot_3, plot_4, plot_5+ rremove("x.text"), 
+          labels = c("A", "B", "C", "D","E"),
+          ncol = 2, nrow = 3)
+```
+On the following graphs one can see that MRT1 at the LMU is showing suspiciously high values.
+Contact with the technician is needed to clear if wrong callibration could be a reason for this results.
+<span style="color: blue;">It is rather surprising observation. If anything, I would rather expect that poor calibration could happen at Rechts der Isar! not Links der Isar.</span> 
+
+## Deleting of MRT1 data from LMU Site
+```{r}
+df_clean <-df_full %>% 
+  filter(!(Ort == "Links der Isar"&Geraet=="MRT1"))
+df_clean
+```
+# Unblinding
+```{r}
+df_treatment <-read_csv("treatment_list.csv")
+df_treatment
+```
+## Let's look what treatment how many people get
+```{r}
+ggplot(data=df_treatment)+
+  geom_bar(mapping=aes(x=treatment, fill= treatment))
+```
+Let's get colours which would nicely match the treatment
+```{r}
+colours<-c("#EEDE16", "#57370A", "#CE9D33","#75EDF3")
+ggplot(data=df_treatment)+
+  geom_bar(mapping=aes(x=treatment, fill= colours))
+```
+
+<span style="color: red;">Code above is not working. I have found some nice colours (as you would associate them with different treatments, e.g. water-blue, beer-yellow to) but I do not know why I cannot use them like this in the graph.</span> 
+
+Observation: The experimental groups were of similar size.
+
+## Joinng the treatment with the table from before
+```{r}
+df_unblinded <-left_join(df_clean,df_treatment, by="PatID")
+df_unblinded
+```
+# Comparing the treatment effect on different life areas
+```{r}
+par(mfrow=c(3,3))
+plot_A <- ggplot(data=df_unblinded) +
+    geom_boxplot(aes(x=treatment, y=Productivity, fill=treatment))
+plot_B <- ggplot(data=df_unblinded) +
+    geom_boxplot(aes(x=treatment, y=Quality.of.life, fill=treatment))
+plot_C<- ggplot(data=df_unblinded) +
+    geom_boxplot(aes(x=treatment, y=Laziness, fill=treatment))
+plot_D <- ggplot(data=df_unblinded) +
+    geom_boxplot(aes(x=treatment, y=Intelligence, fill=treatment))
+plot_E <- ggplot(data=df_unblinded) +
+    geom_boxplot(aes(x=treatment, y=Resilience, fill=treatment))
+
+ggarrange(plot_A, plot_B, plot_C, plot_D, plot_E+ rremove("x.text"), 
+          labels = c("A", "B", "C", "D","E"),
+          ncol = 2, nrow = 3)
+
+```
+This finding requires some more attention...
+```{r}
+plot_B
+```
+## I think we should publish this data immediately. Let's not hide the truth from humanity anymore. They have right to know...
+## With this beautiful conclusion I am ready to start the weekend! Thank you very much for a great course!
+###                     Mikolaj Cygan
